@@ -17,4 +17,3 @@ func NewService(repo *repository.Repository) *Service {
 		repo: repo,
 	}
 }
-

@@ -2,16 +2,13 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/Konsultin/project-goes-here/config"
-	"github.com/Konsultin/project-goes-here/dto"
 	"github.com/Konsultin/project-goes-here/internal/middleware"
 	svcCore "github.com/Konsultin/project-goes-here/internal/svc-core"
 	"github.com/Konsultin/project-goes-here/libs/errk"
@@ -20,47 +17,6 @@ import (
 	"github.com/Konsultin/project-goes-here/libs/routek"
 	"github.com/valyala/fasthttp"
 )
-
-type responder struct {
-	debug bool
-}
-
-func newResponder(debug bool) responder {
-	return responder{debug: debug}
-}
-
-func (r responder) success(ctx *fasthttp.RequestCtx, status int, code dto.Code, message string, data any) {
-	r.write(ctx, status, code, message, data)
-}
-
-func (r responder) error(ctx *fasthttp.RequestCtx, status int, code dto.Code, message string, err error) {
-	var data any
-	if r.debug && err != nil {
-		data = map[string]any{"error": err.Error()}
-	}
-	r.write(ctx, status, code, message, data)
-}
-
-func (r responder) write(ctx *fasthttp.RequestCtx, status int, code dto.Code, message string, data any) {
-	resp := dto.Response[any]{
-		Message:   message,
-		Code:      code,
-		Data:      data,
-		Timestamp: time.Now().UTC().UnixMilli(),
-	}
-
-	body, err := json.Marshal(resp)
-	if err != nil {
-		log.Printf("failed to marshal response: %v", err)
-		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
-		ctx.SetBodyString(`{"message":"internal server error","code":"INTERNAL_ERROR","data":null,"timestamp":0}`)
-		return
-	}
-
-	ctx.Response.Header.Set("Content-Type", "application/json")
-	ctx.SetStatusCode(status)
-	ctx.SetBody(body)
-}
 
 func konsultinAscii() string {
 	return `
@@ -99,20 +55,20 @@ func main() {
 		}
 	}()
 
+	resp := routek.NewResponder(cfg.Debug)
+
 	rt, err := routek.NewRouter(routek.Config{
-		Handlers: map[string]any{
-			"core": coreServer,
-		},
+		Handlers:  map[string]any{"core": coreServer},
+		Responder: resp,
 	})
 	if err != nil {
 		rootLog.Fatal("Failed to init router", logkOption.Error(errk.Trace(err)))
 	}
 
-	responder := newResponder(cfg.Debug)
 	handler, err := middleware.Init(middleware.Config{
 		Handler:          rt.Handler,
 		Logger:           rootLog,
-		OnError:          responder.error,
+		OnError:          resp.Error,
 		RateLimitRPS:     cfg.RateLimitRPS,
 		RateLimitBurst:   cfg.RateLimitBurst,
 		CORSAllowOrigins: cfg.CORSAllowOrigins,

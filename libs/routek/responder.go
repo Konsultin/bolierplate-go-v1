@@ -1,0 +1,111 @@
+package routek
+
+import (
+	"encoding/json"
+	"errors"
+	"log"
+	"time"
+
+	"github.com/Konsultin/project-goes-here/dto"
+	"github.com/Konsultin/project-goes-here/libs/errk"
+	"github.com/valyala/fasthttp"
+)
+
+type Responder struct {
+	debug bool
+}
+
+func NewResponder(debug bool) *Responder {
+	return &Responder{debug: debug}
+}
+
+func (r *Responder) Success(ctx *fasthttp.RequestCtx, status int, code dto.Code, message string, data any) {
+	resp := dto.Response[any]{
+		Message:   message,
+		Code:      code,
+		Data:      data,
+		Timestamp: time.Now().UTC().UnixMilli(),
+	}
+	r.write(ctx, status, resp)
+}
+
+func (r *Responder) Error(ctx *fasthttp.RequestCtx, status int, code dto.Code, message string, err error) {
+	var data any
+
+	if err != nil {
+		if e := statusFromErrk(err); e != nil {
+			code = dto.Code(e.Code())
+			if e.Message() != "" {
+				message = e.Message()
+			}
+			if st, ok := httpStatusFromMetadata(e.Metadata()); ok {
+				status = st
+			}
+			if r.debug {
+				data = map[string]any{
+					"error":  e.Error(),
+					"traces": e.Traces(),
+				}
+			}
+		} else if r.debug {
+			data = map[string]any{"error": err.Error()}
+		}
+	}
+
+	if status == 0 {
+		status = fasthttp.StatusInternalServerError
+	}
+	if code == "" {
+		code = dto.CodeInternalError
+	}
+	if message == "" {
+		message = "internal server error"
+	}
+
+	resp := dto.Response[any]{
+		Message:   message,
+		Code:      code,
+		Data:      data,
+		Timestamp: time.Now().UTC().UnixMilli(),
+	}
+	r.write(ctx, status, resp)
+}
+
+func (r *Responder) write(ctx *fasthttp.RequestCtx, status int, payload any) {
+	body, err := json.Marshal(payload)
+	if err != nil {
+		log.Printf("failed to marshal response: %v", err)
+		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
+		ctx.SetBodyString(`{"message":"internal server error","code":"INTERNAL_ERROR","data":null,"timestamp":0}`)
+		return
+	}
+
+	ctx.Response.Header.Set("Content-Type", "application/json")
+	ctx.SetStatusCode(status)
+	ctx.SetBody(body)
+}
+
+func statusFromErrk(err error) *errk.Error {
+	var e *errk.Error
+	if errors.As(err, &e) {
+		return e
+	}
+	return nil
+}
+
+func httpStatusFromMetadata(md map[string]interface{}) (int, bool) {
+	if md == nil {
+		return 0, false
+	}
+	if v, ok := md["http_status"]; ok {
+		switch t := v.(type) {
+		case int:
+			return t, true
+		case int64:
+			return int(t), true
+		case float64:
+			return int(t), true
+		}
+	}
+	return 0, false
+}

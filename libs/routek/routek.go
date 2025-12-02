@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/Konsultin/project-goes-here/dto"
 	"github.com/fasthttp/router"
 	"github.com/valyala/fasthttp"
 	"gopkg.in/yaml.v3"
@@ -21,7 +22,8 @@ const (
 type Config struct {
 	// RouteFile is the path to api-route.yaml. If empty, routek searches a few sensible defaults.
 	RouteFile string
-	Handlers map[string]any
+	Handlers  map[string]any
+	Responder *Responder
 }
 
 type (
@@ -102,6 +104,10 @@ func NewRouter(cfg Config) (*router.Router, error) {
 	}
 
 	rt := router.New()
+	responder := cfg.Responder
+	if responder == nil {
+		responder = NewResponder(false)
+	}
 
 	for group, routes := range doc {
 		handlerTarget, ok := cfg.Handlers[group]
@@ -114,7 +120,7 @@ func NewRouter(cfg Config) (*router.Router, error) {
 		}
 
 		for _, r := range routes.Routes {
-			handlerFn, err := buildHandler(handlerTarget, r.Handler)
+			handlerFn, err := buildHandler(handlerTarget, r.Handler, responder)
 			if err != nil {
 				return nil, fmt.Errorf("routek: %s.%s: %w", group, r.Handler, err)
 			}
@@ -162,7 +168,7 @@ func exists(path string) bool {
 	return false
 }
 
-func buildHandler(target any, methodName string) (fasthttp.RequestHandler, error) {
+func buildHandler(target any, methodName string, responder *Responder) (fasthttp.RequestHandler, error) {
 	if methodName == "" {
 		return nil, errors.New("handler name is empty")
 	}
@@ -193,9 +199,23 @@ func buildHandler(target any, methodName string) (fasthttp.RequestHandler, error
 
 		return func(ctx *fasthttp.RequestCtx) {
 			if res := method.Call([]reflect.Value{reflect.ValueOf(ctx)}); len(res) == 1 && !res[0].IsNil() {
-				ctx.SetStatusCode(fasthttp.StatusInternalServerError)
-				ctx.SetBodyString(res[0].Interface().(error).Error())
+				responder.Error(ctx, fasthttp.StatusInternalServerError, dto.CodeInternalError, "internal server error", res[0].Interface().(error))
 			}
+		}, nil
+	case 2:
+		if methodType.Out(1) != errType {
+			return nil, fmt.Errorf("handler %q must return (any, error)", methodName)
+		}
+
+		return func(ctx *fasthttp.RequestCtx) {
+			res := method.Call([]reflect.Value{reflect.ValueOf(ctx)})
+			data := res[0].Interface()
+			if !res[1].IsNil() {
+				responder.Error(ctx, fasthttp.StatusInternalServerError, dto.CodeInternalError, "internal server error", res[1].Interface().(error))
+				return
+			}
+
+			responder.Success(ctx, fasthttp.StatusOK, dto.CodeOK, "success", data)
 		}, nil
 	default:
 		return nil, fmt.Errorf("handler %q must return either nothing or error", methodName)

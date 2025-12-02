@@ -7,7 +7,7 @@ import (
 	f "github.com/valyala/fasthttp"
 )
 
-func (s *Server) HealthCheck(ctx *f.RequestCtx) {
+func (s *Server) HealthCheck(ctx *f.RequestCtx) (*dto.HealthData, error) {
 	uptime := time.Since(s.startedAt).String()
 
 	data := dto.HealthData{
@@ -19,14 +19,7 @@ func (s *Server) HealthCheck(ctx *f.RequestCtx) {
 		Dependencies: map[string]string{},
 	}
 
-	resp := dto.Response[dto.HealthData]{
-		Message:   "liveness ok",
-		Code:      dto.CodeOK,
-		Data:      data,
-		Timestamp: time.Now().UTC().UnixMilli(),
-	}
+	s.log.Debugf("Ran Health Check: %+v", data)
 
-	s.log.Debugf("Ran Health Check: %+v", resp)
-
-	s.response(ctx, f.StatusOK, resp)
+	return &data, nil
 }
