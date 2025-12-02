@@ -7,6 +7,7 @@ import (
 	"github.com/Konsultin/project-goes-here/internal/svc-core/constant"
 	"github.com/Konsultin/project-goes-here/internal/svc-core/repository"
 	"github.com/Konsultin/project-goes-here/internal/svc-core/service"
+	"github.com/Konsultin/project-goes-here/libs/errk"
 	"github.com/Konsultin/project-goes-here/libs/logk"
 	logkOption "github.com/Konsultin/project-goes-here/libs/logk/option"
 )
@@ -19,10 +20,10 @@ type Server struct {
 	log       logk.Logger
 }
 
-func New(config *config.Config, startedAt time.Time) *Server {
+func New(config *config.Config, startedAt time.Time) (*Server, error) {
 	repo, err := repository.NewRepository(config)
 	if err != nil {
-		panic(err)
+		return nil, errk.Trace(err)
 	}
 
 	svc := service.NewService(repo)
@@ -35,7 +36,7 @@ func New(config *config.Config, startedAt time.Time) *Server {
 		log:       logk.Get().NewChild(logkOption.WithNamespace(constant.ServiceName + "/server")),
 	}
 
-	return server
+	return server, nil
 
 }
 

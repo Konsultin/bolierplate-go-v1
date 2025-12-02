@@ -33,25 +33,25 @@ func NewRepository(cfg *config.Config) (*Repository, error) {
 	})
 
 	if err != nil {
-		logk.Get().Error("Failed to initialize database config", logkOption.Error(err))
+		logk.Get().Error("Failed to initialize database config", logkOption.Error(errk.Trace(err)))
 		return nil, errk.Trace(err)
 	}
 
 	if err := db.Init(); err != nil {
-		logk.Get().Error("Failed to connect to database", logkOption.Error(err))
+		logk.Get().Error("Failed to connect to database", logkOption.Error(errk.Trace(err)))
 		return nil, errk.Trace(err)
 	}
 
 	// Init repository config
 	repoConfig, err := NewRepositoryConfig(cfg)
 	if err != nil {
-		logk.Get().Error("Failed to initialize repository config", logkOption.Error(err))
+		logk.Get().Error("Failed to initialize repository config", logkOption.Error(errk.Trace(err)))
 		return nil, errk.Trace(err)
 	}
 
 	adapters, err := newRepositoryAdapters(cfg)
 	if err != nil {
-		logk.Get().Error("Failed to initialize repository adapters", logkOption.Error(err))
+		logk.Get().Error("Failed to initialize repository adapters", logkOption.Error(errk.Trace(err)))
 		return nil, errk.Trace(err)
 	}
 

@@ -3,6 +3,8 @@ package svcCore
 import (
 	"encoding/json"
 
+	"github.com/Konsultin/project-goes-here/libs/errk"
+	logkOption "github.com/Konsultin/project-goes-here/libs/logk/option"
 	f "github.com/valyala/fasthttp"
 )
 
@@ -14,7 +16,7 @@ func (s *Server) response(ctx *f.RequestCtx, statusCode int, payload any) {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		if s.log != nil {
-			s.log.Errorf("failed to marshal response: %v", err)
+			s.log.Error("failed to marshal response", logkOption.Error(errk.Trace(err)))
 		}
 		ctx.SetStatusCode(f.StatusInternalServerError)
 		ctx.SetBodyString(`{"message":"internal server error","code":"INTERNAL_ERROR","data":null,"timestamp":0}`)

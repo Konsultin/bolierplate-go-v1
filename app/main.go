@@ -7,13 +7,14 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/Konsultin/project-goes-here/config"
 	"github.com/Konsultin/project-goes-here/dto"
+	"github.com/Konsultin/project-goes-here/internal/middleware"
 	svcCore "github.com/Konsultin/project-goes-here/internal/svc-core"
+	"github.com/Konsultin/project-goes-here/libs/errk"
 	"github.com/Konsultin/project-goes-here/libs/logk"
 	logkOption "github.com/Konsultin/project-goes-here/libs/logk/option"
 	"github.com/Konsultin/project-goes-here/libs/routek"
@@ -61,49 +62,6 @@ func (r responder) write(ctx *fasthttp.RequestCtx, status int, code dto.Code, me
 	ctx.SetBody(body)
 }
 
-type rateLimiter struct {
-	tokens chan struct{}
-}
-
-func newRateLimiter(rps, burst int) *rateLimiter {
-	rl := &rateLimiter{
-		tokens: make(chan struct{}, burst),
-	}
-
-	// Pre-fill burst tokens.
-	for i := 0; i < burst; i++ {
-		rl.tokens <- struct{}{}
-	}
-
-	interval := time.Second / time.Duration(rps)
-	if interval <= 0 {
-		interval = time.Millisecond
-	}
-	ticker := time.NewTicker(interval)
-
-	go func() {
-		defer ticker.Stop()
-		for range ticker.C {
-			select {
-			case rl.tokens <- struct{}{}:
-			default:
-				// Bucket full, drop token.
-			}
-		}
-	}()
-
-	return rl
-}
-
-func (r *rateLimiter) allow() bool {
-	select {
-	case <-r.tokens:
-		return true
-	default:
-		return false
-	}
-}
-
 func konsultinAscii() string {
 	return `
 '     __  _   ___   ____   _____ __ __  _     ______  ____  ____       ___      ___ __ __ 
@@ -117,13 +75,13 @@ func konsultinAscii() string {
 '    Boilerplate created by Kenly Krisaguino - @kenly.krisaguino on Instagram
 '	 Version: 1.0.0
 '                                                                                         
-`
+	`
 }
 
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
-		logk.Get().Fatalf("Failed to load config: %v", err)
+		logk.Get().Fatal("Failed to load config", logkOption.Error(errk.Trace(err)))
 	}
 	startedAt := time.Now()
 	rootLog := logk.Get().NewChild(logkOption.WithNamespace("api"))
@@ -131,10 +89,13 @@ func main() {
 
 	fmt.Println(konsultinAscii())
 
-	coreServer := svcCore.New(cfg, startedAt)
+	coreServer, err := svcCore.New(cfg, startedAt)
+	if err != nil {
+		rootLog.Fatal("Failed to init core server", logkOption.Error(errk.Trace(err)))
+	}
 	defer func() {
 		if err := coreServer.Close(); err != nil {
-			rootLog.Errorf("Failed to close resources: %v", err)
+			rootLog.Error("Failed to close resources", logkOption.Error(errk.Trace(err)))
 		}
 	}()
 
@@ -144,17 +105,21 @@ func main() {
 		},
 	})
 	if err != nil {
-		rootLog.Fatalf("Failed to init router: %v", err)
+		rootLog.Fatal("Failed to init router", logkOption.Error(errk.Trace(err)))
 	}
 
 	responder := newResponder(cfg.Debug)
-	limiter := newRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
-	handler := chainMiddleware(rt.Handler,
-		recoveryMiddleware(rootLog, responder),
-		loggingMiddleware(rootLog),
-		rateLimitMiddleware(limiter, rootLog, responder),
-		corsMiddleware(cfg.CORSAllowOrigins),
-	)
+	handler, err := middleware.Init(middleware.Config{
+		Handler:          rt.Handler,
+		Logger:           rootLog,
+		OnError:          responder.error,
+		RateLimitRPS:     cfg.RateLimitRPS,
+		RateLimitBurst:   cfg.RateLimitBurst,
+		CORSAllowOrigins: cfg.CORSAllowOrigins,
+	})
+	if err != nil {
+		rootLog.Fatal("Failed to init middleware", logkOption.Error(errk.Trace(err)))
+	}
 
 	server := &fasthttp.Server{
 		Handler:      handler,
@@ -182,7 +147,7 @@ func main() {
 		rootLog.Infof("Received signal %s, shutting down", sig)
 	case err := <-errCh:
 		if err != nil {
-			rootLog.Fatalf("Server error: %v", err)
+			rootLog.Fatal("Server error", logkOption.Error(errk.Trace(err)))
 		}
 	}
 
@@ -190,94 +155,8 @@ func main() {
 	defer cancel()
 
 	if err := server.ShutdownWithContext(shutdownCtx); err != nil {
-		rootLog.Errorf("Graceful shutdown failed: %v", err)
+		rootLog.Error("Graceful shutdown failed", logkOption.Error(errk.Trace(err)))
 	} else {
 		rootLog.Info("Server stopped gracefully")
 	}
-}
-
-func chainMiddleware(final fasthttp.RequestHandler, middlewares ...func(fasthttp.RequestHandler) fasthttp.RequestHandler) fasthttp.RequestHandler {
-	handler := final
-	for i := len(middlewares) - 1; i >= 0; i-- {
-		handler = middlewares[i](handler)
-	}
-	return handler
-}
-
-func recoveryMiddleware(log logk.Logger, res responder) func(fasthttp.RequestHandler) fasthttp.RequestHandler {
-	return func(next fasthttp.RequestHandler) fasthttp.RequestHandler {
-		return func(ctx *fasthttp.RequestCtx) {
-			defer func() {
-				if r := recover(); r != nil {
-					log.Errorf("panic recovered: %v", r)
-					res.error(ctx, fasthttp.StatusInternalServerError, dto.CodeInternalError, "internal server error", fmt.Errorf("%v", r))
-				}
-			}()
-			next(ctx)
-		}
-	}
-}
-
-func loggingMiddleware(log logk.Logger) func(fasthttp.RequestHandler) fasthttp.RequestHandler {
-	return func(next fasthttp.RequestHandler) fasthttp.RequestHandler {
-		return func(ctx *fasthttp.RequestCtx) {
-			start := time.Now()
-			next(ctx)
-			duration := time.Since(start)
-			log.Infof("%s %s -> %d in %s", ctx.Method(), ctx.Path(), ctx.Response.StatusCode(), duration)
-		}
-	}
-}
-
-func rateLimitMiddleware(rl *rateLimiter, log logk.Logger, res responder) func(fasthttp.RequestHandler) fasthttp.RequestHandler {
-	return func(next fasthttp.RequestHandler) fasthttp.RequestHandler {
-		return func(ctx *fasthttp.RequestCtx) {
-			if !rl.allow() {
-				log.Warn("request rejected: rate limit exceeded")
-				res.error(ctx, fasthttp.StatusTooManyRequests, dto.CodeTooManyRequests, "too many requests", nil)
-				return
-			}
-			next(ctx)
-		}
-	}
-}
-
-func corsMiddleware(allowedOrigins []string) func(fasthttp.RequestHandler) fasthttp.RequestHandler {
-	return func(next fasthttp.RequestHandler) fasthttp.RequestHandler {
-		return func(ctx *fasthttp.RequestCtx) {
-			origin := string(ctx.Request.Header.Peek("Origin"))
-
-			if originAllowed(origin, allowedOrigins) {
-				if origin == "" && len(allowedOrigins) == 1 && allowedOrigins[0] == "*" {
-					ctx.Response.Header.Set("Access-Control-Allow-Origin", "*")
-				} else {
-					ctx.Response.Header.Set("Access-Control-Allow-Origin", origin)
-					ctx.Response.Header.Set("Vary", "Origin")
-				}
-				ctx.Response.Header.Set("Access-Control-Allow-Credentials", "true")
-			}
-
-			ctx.Response.Header.Set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
-			ctx.Response.Header.Set("Access-Control-Allow-Headers", "Authorization,Content-Type")
-
-			if ctx.IsOptions() {
-				ctx.SetStatusCode(fasthttp.StatusNoContent)
-				return
-			}
-
-			next(ctx)
-		}
-	}
-}
-
-func originAllowed(origin string, allowed []string) bool {
-	if origin == "" {
-		return true
-	}
-	for _, allowedOrigin := range allowed {
-		if allowedOrigin == "*" || strings.EqualFold(allowedOrigin, origin) {
-			return true
-		}
-	}
-	return false
 }
