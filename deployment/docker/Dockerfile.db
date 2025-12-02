@@ -1,0 +1,9 @@
+ARG DB_DRIVER=mysql
+ARG MYSQL_VERSION=8.0
+ARG POSTGRES_VERSION=16-alpine
+
+FROM mysql:${MYSQL_VERSION} AS mysql
+FROM postgres:${POSTGRES_VERSION} AS postgres
+
+# Select the stage that matches DB_DRIVER (mysql or postgres).
+FROM ${DB_DRIVER}

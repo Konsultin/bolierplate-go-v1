@@ -38,6 +38,7 @@ func main() {
 	cfg, err := config.Load()
 	if err != nil {
 		logk.Get().Fatal("Failed to load config", logkOption.Error(errk.Trace(err)))
+		return
 	}
 	startedAt := time.Now()
 	rootLog := logk.Get().NewChild(logkOption.WithNamespace("api"))
@@ -48,8 +49,12 @@ func main() {
 	coreServer, err := svcCore.New(cfg, startedAt)
 	if err != nil {
 		rootLog.Fatal("Failed to init core server", logkOption.Error(errk.Trace(err)))
+		return
 	}
 	defer func() {
+		if coreServer == nil {
+			return
+		}
 		if err := coreServer.Close(); err != nil {
 			rootLog.Error("Failed to close resources", logkOption.Error(errk.Trace(err)))
 		}
@@ -63,6 +68,7 @@ func main() {
 	})
 	if err != nil {
 		rootLog.Fatal("Failed to init router", logkOption.Error(errk.Trace(err)))
+		return
 	}
 
 	handler, err := middleware.Init(middleware.Config{
@@ -75,6 +81,7 @@ func main() {
 	})
 	if err != nil {
 		rootLog.Fatal("Failed to init middleware", logkOption.Error(errk.Trace(err)))
+		return
 	}
 
 	server := &fasthttp.Server{

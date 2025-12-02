@@ -29,7 +29,13 @@ init:
 		else \
 			echo "COMPOSE_PROJECT_NAME=$$NAME" >> .env; \
 		fi; \
+		if grep -q '^LOG_NAMESPACE=' .env; then \
+			sed -i "s/^LOG_NAMESPACE=.*/LOG_NAMESPACE=$$NAME/" .env; \
+		else \
+			echo "LOG_NAMESPACE=$$NAME" >> .env; \
+		fi; \
 		echo "Set COMPOSE_PROJECT_NAME=$$NAME for container names"; \
+		echo "Set LOG_NAMESPACE=$$NAME"; \
 	fi; \
 	echo "Initialization completed"
 
