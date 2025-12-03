@@ -2,6 +2,7 @@ SHELL := /bin/sh
 
 COMPOSE_FILE := deployment/docker/docker-compose.yaml
 COMPOSE := docker compose -f $(COMPOSE_FILE)
+AIR ?= air
 
 MIGRATIONS_DIR := migrations
 MIGRATE ?= $(shell go env GOPATH)/bin/migrate
@@ -9,7 +10,7 @@ MIGRATE ?= $(shell go env GOPATH)/bin/migrate
 -include .env
 export
 
-.PHONY: setup-project init db-up db-down db-script db-version bs
+.PHONY: setup-project init run lint tidy dev up down db-up db-down db-script db-version bs
 
 setup-project:
 	@read -p "Project name (no spaces): " NAME; \
@@ -39,6 +40,10 @@ setup-project:
 		echo ".env not found; skipped updating COMPOSE_PROJECT_NAME/LOG_NAMESPACE"; \
 	fi; \
 	echo "Project setup completed. Run 'make init' to finish initialization"; \
+	if ! command -v $(AIR) >/dev/null 2>&1; then \
+		echo "Installing air for dev hot-reload"; \
+		go install github.com/air-verse/air@latest; \
+	fi; \
 	printf '\033[0;31m%s\033[0m\n' "Reminder: setup environment first (e.g. update .env) before running services"
 
 init:
@@ -54,8 +59,42 @@ init:
 	go mod tidy; \
 	echo "Installing migrate CLI"; \
 	go install -tags "postgres,mysql" github.com/golang-migrate/migrate/v4/cmd/migrate@latest; \
+	if ! command -v $(AIR) >/dev/null 2>&1; then \
+		echo "Installing air for dev hot-reload"; \
+		go install github.com/air-verse/air@latest; \
+	fi; \
 	echo "Initialization completed"; \
 	printf '\033[0;31m%s\033[0m\n' "Reminder: setup environment first (e.g. update .env) before running services"
+
+run:
+	@echo "Starting API server..."; \
+	go run ./app
+
+lint:
+	@echo "Running go vet..."; \
+	go vet ./...
+
+tidy:
+	@echo "Running go mod tidy..."; \
+	go mod tidy
+
+dev:
+	@command -v $(AIR) >/dev/null 2>&1 || { echo "air is not installed. Install with 'go install github.com/air-verse/air@latest'"; exit 1; }; \
+	mkdir -p tmp; \
+	echo "Starting dev server with air..."; \
+	$(AIR) -c .air.toml
+
+up:
+	@profile="mysql"; \
+	if [ "$${DB_DRIVER}" = "postgres" ] || [ "$${DB_DRIVER}" = "postgresql" ] || [ "$${DB_DRIVER}" = "pg" ]; then \
+		profile="postgres"; \
+	fi; \
+	echo "DB_DRIVER=$${DB_DRIVER:-unset} -> running profile '$$profile'"; \
+	$(COMPOSE) --profile $$profile up -d
+
+down:
+	@echo "Stopping docker compose stack..."; \
+	$(COMPOSE) down
 
 db-url = \
 if [ -z "$$DB_DRIVER" ]; then echo "DB_DRIVER is not set"; exit 1; fi; \

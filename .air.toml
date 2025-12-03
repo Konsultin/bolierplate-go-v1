@@ -1,0 +1,11 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+cmd = "go build -o ./tmp/api ./app"
+bin = "./tmp/api"
+full_bin = "./tmp/api"
+delay = 1000
+exclude_dir = ["tmp", "vendor"]
+include_ext = ["go", "yaml", "yml", "env"]
+exclude_file = ["go.sum"]
