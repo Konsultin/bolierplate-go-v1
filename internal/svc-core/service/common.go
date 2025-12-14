@@ -21,6 +21,10 @@ func (s *Service) WithSubject(subject *dto.Subject) *Service {
 	return &newS
 }
 
+func (s *Service) RunExampleJob() {
+	s.log.Info("Running logic for example job...")
+}
+
 func NewService(repo *repository.Repository) *Service {
 	return &Service{
 		repo: repo,

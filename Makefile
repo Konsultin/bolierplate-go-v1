@@ -55,6 +55,8 @@ init:
 		echo "Installing air for dev hot-reload"; \
 		go install github.com/air-verse/air@latest; \
 	fi; \
+	if grep -q "CRON_USERNAME=" .env; then echo "CRON_USERNAME already set"; else echo "CRON_USERNAME=admin" >> .env; fi; \
+	if grep -q "CRON_PASSWORD=" .env; then echo "CRON_PASSWORD already set"; else rand_pass=$$(openssl rand -hex 5); echo "CRON_PASSWORD=$$rand_pass" >> .env; echo "Generated CRON_PASSWORD: $$rand_pass"; fi; \
 	echo "Initialization completed"; \
 	printf '\033[0;31m%s\033[0m\n' "Reminder: setup environment first (e.g. update .env) before running services"
 

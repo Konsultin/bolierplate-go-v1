@@ -2,3 +2,5 @@ core:
   route:
     - get: /
       handler: HealthCheck
+    - post: /v1/cron/{cronType}
+      handler: HandleCronTrigger

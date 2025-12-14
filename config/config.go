@@ -18,6 +18,9 @@ type Config struct {
 	HTTPWriteTimeoutSeconds int `envconfig:"HTTP_WRITE_TIMEOUT_SECONDS" default:"15"`
 	HTTPIdleTimeoutSeconds  int `envconfig:"HTTP_IDLE_TIMEOUT_SECONDS" default:"60"`
 
+	CronUsername string `envconfig:"CRON_USERNAME" default:"admin"`
+	CronPassword string `envconfig:"CRON_PASSWORD" default:""`
+
 	RateLimitRPS   int `envconfig:"RATE_LIMIT_RPS" default:"25"`
 	RateLimitBurst int `envconfig:"RATE_LIMIT_BURST" default:"50"`
 
