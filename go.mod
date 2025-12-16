@@ -1,8 +1,11 @@
 module github.com/Konsultin/project-goes-here
 
-go 1.22.5
+go 1.23
+
+toolchain go1.23.4
 
 require (
+	github.com/dromara/carbon/v2 v2.6.15
 	github.com/fasthttp/router v1.5.0
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/jmoiron/sqlx v1.4.0
