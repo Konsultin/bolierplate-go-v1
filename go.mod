@@ -8,12 +8,16 @@ require (
 	github.com/dromara/carbon/v2 v2.6.15
 	github.com/fasthttp/router v1.5.0
 	github.com/go-sql-driver/mysql v1.9.3
+	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/google/uuid v1.6.0
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/joho/godotenv v1.5.1
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/lib/pq v1.10.9
+	github.com/matoous/go-nanoid/v2 v2.1.0
+	github.com/nbs-go/nlogger/v2 v2.3.0
 	github.com/valyala/fasthttp v1.52.0
+	golang.org/x/crypto v0.19.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 

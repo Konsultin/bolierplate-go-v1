@@ -24,6 +24,11 @@ type Config struct {
 	RateLimitRPS   int `envconfig:"RATE_LIMIT_RPS" default:"25"`
 	RateLimitBurst int `envconfig:"RATE_LIMIT_BURST" default:"50"`
 
+	JwtIssuer                  string `envconfig:"JWT_ISSUER"`
+	JwtSecret                  string `envconfig:"JWT_SECRET"`
+	UserSessionLifetime        int64  `envconfig:"USER_SESSION_LIFETIME"`
+	UserSessionRefreshLifetime int64  `envconfig:"USER_SESSION_REFRESH_LIFETIME"`
+
 	CORSAllowOrigins []string `envconfig:"CORS_ALLOW_ORIGINS" default:"*"`
 
 	DatabaseDriver          string `envconfig:"DB_DRIVER" default:"mysql"`

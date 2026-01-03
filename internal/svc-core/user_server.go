@@ -22,7 +22,7 @@ func (s *Server) HandleCreateAnonymousUserSession(ctx *f.RequestCtx) (*dto.Creat
 	}
 
 	// Call Service
-	result, err := svc.CreateAnonymousUserSession(ctx, basicAuth.Username, basicAuth.Password)
+	result, err := svc.CreateAnonymousUserSession(basicAuth, dto.Role_ANONYMOUS_USER)
 	if err != nil {
 		s.log.Errorf("Failed to create user session: %v", err)
 		return nil, err

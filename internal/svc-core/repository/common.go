@@ -12,11 +12,11 @@ import (
 )
 
 type Repository struct {
-	config   *RepositoryConfig
-	db       *sqlk.Database
-	adapters *repositoryAdapters
-	log      logk.Logger
-	isClone  bool
+	config  *RepositoryConfig
+	db      *sqlk.Database
+	log     logk.Logger
+	isClone bool
+	*repositoryAdapters
 }
 
 func NewRepository(cfg *config.Config) (*Repository, error) {
@@ -50,17 +50,17 @@ func NewRepository(cfg *config.Config) (*Repository, error) {
 		return nil, errk.Trace(err)
 	}
 
-	adapters, err := newRepositoryAdapters(cfg)
+	adapters, err := newRepositoryAdapters(cfg, db)
 	if err != nil {
 		logk.Get().Error("Failed to initialize repository adapters", logkOption.Error(errk.Trace(err)))
 		return nil, errk.Trace(err)
 	}
 
 	var r = Repository{
-		config:   repoConfig,
-		db:       db,
-		adapters: adapters,
-		log:      logk.Get().NewChild(logkOption.WithNamespace("svc-core/repository")),
+		config:             repoConfig,
+		db:                 db,
+		repositoryAdapters: adapters,
+		log:                logk.Get().NewChild(logkOption.WithNamespace("svc-core/repository")),
 	}
 
 	logk.Get().Infof("Connected to database '%s' successfully", cfg.DatabaseName)

@@ -60,3 +60,13 @@ func (s *DatabaseContext) MustPrepareRebind(query string) *sqlx.Stmt {
 	}
 	return stmt
 }
+
+// Rebind transforms a query from using ? placeholders to the driver-specific placeholder format
+func (s *DatabaseContext) Rebind(query string) string {
+	return s.conn.Rebind(query)
+}
+
+// SelectContext executes a query using the stored context, and BindStructScan each row into dest
+func (s *DatabaseContext) SelectContext(ctx context.Context, dest interface{}, query string, args ...interface{}) error {
+	return s.conn.SelectContext(ctx, dest, query, args...)
+}
