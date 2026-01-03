@@ -52,7 +52,7 @@ func (b *SelectBuilder) From(s *schema.Schema, args ...interface{}) *SelectBuild
 	opts := option.EvaluateOptions(args)
 	as, _ := opts.GetString(option.AsKey)
 	if as != "" {
-		log.Printf("sqlk: warning: From() option setter option.As() is deprecated. Use schema.New() option setter schema.As() instead. See Breaking Changes Note => https://github.com/nbs-go/sqlk#breaking-changes. (Schema = %s)\n", s.TableName())
+		log.Printf("sqlk: warning: From() option setter option.As() is deprecated. Use schema.New() option setter schema.As() instead. (Schema = %s)\n", s.TableName())
 	}
 	// Create writer
 	w := newTableWriter(s.TableName(), s.As())
@@ -70,7 +70,7 @@ func (b *SelectBuilder) Join(s *schema.Schema, onCondition sqlk.WhereWriter, arg
 	// Resolve as option, and print warning
 	as, _ := opts.GetString(option.AsKey)
 	if as != "" {
-		log.Printf("sqlk: warning: Join() option setter option.As() is deprecated. Use schema.New() option setter schema.As() instead. See Breaking Changes Note => https://github.com/nbs-go/sqlk#breaking-changes. (Schema = %s)\n", s.TableName())
+		log.Printf("sqlk: warning: Join() option setter option.As() is deprecated. Use schema.New() option setter schema.As() instead. (Schema = %s)\n", s.TableName())
 	}
 
 	// Add table
