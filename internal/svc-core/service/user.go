@@ -16,7 +16,7 @@ import (
 )
 
 func (s *Service) CreateAnonymousUserSession(payload *unaryHttpk.BasicAuth, clientTypeId dto.Role_Enum) (*dto.CreateAnonymousSession_Result, error) {
-	clientAuth, err := s.Repo.FindClientAuthByClientId(s.Ctx, payload.Username)
+	clientAuth, err := s.Repo.FindClientAuthByClientId(payload.Username)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			s.Log.Errorf("clientAuth is not found. Username = %s", payload.Username)
@@ -44,7 +44,7 @@ func (s *Service) CreateAnonymousUserSession(payload *unaryHttpk.BasicAuth, clie
 		return nil, fmt.Errorf("invalid Client Type. clientTypeId = %v", clientAuth.ClientTypeId)
 	}
 
-	rolePrivileges, fErr := s.Repo.FindRolePrivilegeByRoleId(s.Ctx, subjectType)
+	rolePrivileges, fErr := s.Repo.FindRolePrivilegeByRoleId(subjectType)
 	if fErr != nil {
 		s.Log.Error("Failed to FindRolePrivilegeByRoleId", logkOption.Error(fErr))
 		return nil, errk.Trace(fErr)
