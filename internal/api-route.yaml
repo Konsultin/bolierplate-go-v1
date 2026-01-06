@@ -8,3 +8,7 @@ core:
       handler: HandleCreateAnonymousUserSession
     - put: /v1/users/sessions
       handler: HandleUserRefreshToken
+    - post: /v1/users/sessions/login
+      handler: HandleLoginPassword
+    - post: /v1/users/sessions/google
+      handler: HandleLoginGoogle

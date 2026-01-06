@@ -256,9 +256,9 @@ func (s *Service) mustComposeUserResult(m *model.User) *dto.User {
 	return &dto.User{
 		Id:         m.Id,
 		Xid:        m.Xid,
-		Phone:      m.Phone,
+		Phone:      m.Phone.String,
 		FullName:   m.FullName,
-		Email:      m.Email,
+		Email:      m.Email.String,
 		Age:        m.Age.String,
 		Avatar:     s.mustComposeFileResult(dto.AssetType_USER_AVATAR, m.Avatar.String),
 		Status:     composeControlStatusResult(m.StatusId),

@@ -34,6 +34,14 @@ type Config struct {
 
 	CORSAllowOrigins []string `envconfig:"CORS_ALLOW_ORIGINS" default:"*"`
 
+	// OAuth Configuration
+	GoogleClientID    string `envconfig:"GOOGLE_CLIENT_ID" default:""`
+	FacebookAppID     string `envconfig:"FACEBOOK_APP_ID" default:""`
+	FacebookAppSecret string `envconfig:"FACEBOOK_APP_SECRET" default:""`
+	AppleClientID     string `envconfig:"APPLE_CLIENT_ID" default:""`
+	AppleTeamID       string `envconfig:"APPLE_TEAM_ID" default:""`
+	AppleKeyID        string `envconfig:"APPLE_KEY_ID" default:""`
+
 	DatabaseDriver          string `envconfig:"DB_DRIVER" default:"mysql"`
 	DatabaseHost            string `envconfig:"DB_HOST" default:"localhost"`
 	DatabasePort            string `envconfig:"DB_PORT" default:"3306"`

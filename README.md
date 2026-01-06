@@ -4,7 +4,7 @@ This repository is the Konsultin backend boilerplate, curated by Kenly Krisaguin
 
 ## Prerequisites
 
-- Go 1.22+
+- Go 1.23+
 - Docker & Docker Compose (for local DB/profiles)
 - `air` (hot reload) and `migrate` CLI are auto-installed by the Makefile when needed
 
@@ -20,14 +20,29 @@ This repository is the Konsultin backend boilerplate, curated by Kenly Krisaguin
 
 Base config lives in `.env.example`; copy to `.env` and adjust. Key variables:
 
-- `APP_ENV` controls environment (`development`/`production`).
-- `PORT` API listen port; `DEBUG` toggles verbose error payloads.
+### Core Config
+- `APP_ENV` — controls environment (`development`/`production`).
+- `PORT` — API listen port; `DEBUG` toggles verbose error payloads.
 - HTTP timeouts: `HTTP_READ_TIMEOUT_SECONDS`, `HTTP_WRITE_TIMEOUT_SECONDS`, `HTTP_IDLE_TIMEOUT_SECONDS`.
 - Rate limiting: `RATE_LIMIT_RPS`, `RATE_LIMIT_BURST`.
 - CORS: `CORS_ALLOW_ORIGINS`.
-- Logging: `LOG_LEVEL`, `LOG_NAMESPACE` (also set by `make setup-project`).
-- Database: `DB_DRIVER` (`mysql`/`postgres`), `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_NAME`, connection pool (`DB_MAX_IDLE_CONN`, `DB_MAX_OPEN_CONN`, `DB_MAX_CONN_LIFETIME`), and `DB_TIMEOUT_SECONDS`.
-- Docker compose project name: `COMPOSE_PROJECT_NAME` (set during setup).
+
+### JWT & Sessions
+- `JWT_ISSUER` — JWT issuer name.
+- `JWT_SECRET` — Secret key for signing JWT tokens.
+- `USER_SESSION_LIFETIME` — Access token lifetime in seconds (default: 3600).
+- `USER_SESSION_REFRESH_LIFETIME` — Refresh token lifetime in seconds (default: 2592000).
+
+### OAuth Configuration
+- `GOOGLE_CLIENT_ID` — Google OAuth Client ID for Sign in with Google.
+
+### Database
+- `DB_DRIVER` (`mysql`/`postgres`), `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_NAME`.
+- Connection pool: `DB_MAX_IDLE_CONN`, `DB_MAX_OPEN_CONN`, `DB_MAX_CONN_LIFETIME`.
+- `DB_TIMEOUT_SECONDS`.
+
+### Docker
+- `COMPOSE_PROJECT_NAME` — Docker compose project name (set during setup).
 
 ## Makefile Commands
 
@@ -43,15 +58,124 @@ Base config lives in `.env.example`; copy to `.env` and adjust. Key variables:
 - `make db-script` — create a new timestamped SQL migration in `./migrations`.
 - `make db-version` — move schema to a specific migration version.
 
-## Project Intent
+## Authentication Flow
 
-- Ship a consistent starting point for Konsultin services with the same HTTP contracts (`dto.Response`), error semantics, and routing conventions.
-- Encourage local parity with production via Docker profiles and checked-in configs.
+### 1. Anonymous Session (App Authentication)
+
+First, the client must obtain an anonymous session token using Basic Auth:
+
+```bash
+POST /v1/users/anon/sessions
+Authorization: Basic base64(clientId:clientSecret)
+```
+
+Response:
+```json
+{
+  "data": {
+    "session": { "token": "eyJhbGci...", "expiredAt": 1234567890 },
+    "scopes": ["privilege1", "privilege2"]
+  }
+}
+```
+
+### 2. User Login with Password
+
+Login using email/phone/username + password (requires anonymous session token):
+
+```bash
+POST /v1/users/sessions/login
+Authorization: Bearer <anonymous_token>
+Content-Type: application/json
+
+{
+  "identifier": "user@example.com",
+  "password": "secret123",
+  "device": {
+    "deviceId": "device-uuid",
+    "devicePlatformId": 1
+  }
+}
+```
+
+### 3. User Login with Google
+
+Login using Google OAuth (requires anonymous session token):
+
+```bash
+POST /v1/users/sessions/google
+Authorization: Bearer <anonymous_token>
+Content-Type: application/json
+
+{
+  "provider": 2,
+  "idToken": "google-id-token",
+  "device": {
+    "deviceId": "device-uuid",
+    "devicePlatformId": 1
+  }
+}
+```
+
+### 4. Refresh Token
+
+Refresh user session using refresh token:
+
+```bash
+PUT /v1/users/sessions
+Authorization: Bearer <refresh_token>
+Content-Type: application/json
+
+{
+  "refreshToken": "...",
+  "device": { ... }
+}
+```
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/` | Health check |
+| `POST` | `/v1/cron/{cronType}` | Cron trigger |
+| `POST` | `/v1/users/anon/sessions` | Create anonymous session (Basic Auth) |
+| `PUT` | `/v1/users/sessions` | Refresh user session |
+| `POST` | `/v1/users/sessions/login` | Login with password |
+| `POST` | `/v1/users/sessions/google` | Login with Google OAuth |
+
+## Project Structure
+
+```
+├── app/                    # Application entry point
+├── config/                 # Configuration loading
+├── dto/                    # Data Transfer Objects
+├── internal/
+│   └── svc-core/
+│       ├── model/          # Database models
+│       ├── repository/     # Database operations
+│       ├── service/        # Business logic
+│       ├── sql/            # SQL prepared statements
+│       └── pkg/
+│           ├── httpk/      # HTTP utilities & middleware
+│           └── oauth/      # OAuth providers
+│               └── google/ # Google OAuth implementation
+├── libs/                   # Shared libraries
+│   ├── errk/               # Error handling
+│   ├── logk/               # Logging
+│   ├── sqlk/               # Database utilities
+│   └── timek/              # Time utilities
+└── migrations/             # Database migrations
+```
 
 ## Changes
-> ### v0.2.0 - CI/CD Pipelines (WIP)
-> - Create CI/CD Pipeline Flows
-> - Add Module NATS for Message Queue
 
-> ### v0.1.0 - Initial Project
+> ### v1.1.0 - Authentication System
+> - Add flexible login (email/phone/username + password)
+> - Add Google OAuth authentication
+> - Add user credential management
+> - Add anonymous session validation for login endpoints
+> - Add JWT-based session management with access and refresh tokens
+> - Add request binding and validation helpers (go-playground/validator)
+
+> ### v1.0.0 - Initial Project
 > - Create Project Whole Boilerplate Base

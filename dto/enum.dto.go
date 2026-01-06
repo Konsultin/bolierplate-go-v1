@@ -154,6 +154,26 @@ const (
 type AuthProvider_Enum int32
 
 const (
-	AuthProvider_BASIC AuthProvider_Enum = 1
-	AuthProvider_OAUTH AuthProvider_Enum = 2
+	AuthProvider_UNKNOWN  AuthProvider_Enum = 0
+	AuthProvider_PASSWORD AuthProvider_Enum = 1
+	AuthProvider_GOOGLE   AuthProvider_Enum = 2
+	AuthProvider_FACEBOOK AuthProvider_Enum = 3
+	AuthProvider_APPLE    AuthProvider_Enum = 4
+)
+
+var (
+	AuthProvider_Enum_name = map[int32]string{
+		0: "UNKNOWN",
+		1: "PASSWORD",
+		2: "GOOGLE",
+		3: "FACEBOOK",
+		4: "APPLE",
+	}
+	AuthProvider_Enum_value = map[string]int32{
+		"UNKNOWN":  0,
+		"PASSWORD": 1,
+		"GOOGLE":   2,
+		"FACEBOOK": 3,
+		"APPLE":    4,
+	}
 )

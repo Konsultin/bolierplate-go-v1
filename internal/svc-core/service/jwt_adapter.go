@@ -132,3 +132,34 @@ func (ja *JwtAdapter) Validate(token string, options *dto.ValidateJwt_Payload) (
 
 	return &claims, nil
 }
+
+// ValidateWithoutAudience validates JWT token without checking audience
+func (ja *JwtAdapter) ValidateWithoutAudience(token string) (*JwtResponse, error) {
+	keyFunc := func(token *jwt.Token) (interface{}, error) {
+		_, ok := token.Method.(*jwt.SigningMethodHMAC)
+		if !ok {
+			return nil, errk.Trace(fmt.Errorf("token method is invalid"))
+		}
+		return []byte(ja.Secret), nil
+	}
+
+	mapClaims := jwt.MapClaims{}
+	_, err := jwt.ParseWithClaims(token, &mapClaims, keyFunc)
+	if err != nil {
+		return nil, err
+	}
+
+	// convert map claims to json
+	jsonData, err := json.Marshal(mapClaims)
+	if err != nil {
+		return nil, errk.Trace(err)
+	}
+
+	var claims JwtResponse
+	err = json.Unmarshal(jsonData, &claims)
+	if err != nil {
+		return nil, errk.Trace(err)
+	}
+
+	return &claims, nil
+}
